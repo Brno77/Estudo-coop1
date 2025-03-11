@@ -1,0 +1,72 @@
+
+# Carregar bibliotecas necessárias
+
+install.packages("readxl")
+install.packages("dplyr")
+install.packages("ggplot2")
+
+library(readxl)   # Para ler arquivos Excel
+library(dplyr)    # Para manipulação de dados
+library(ggplot2)  # Para visualização de dados
+
+
+# Carregar os dados
+dados <- read_excel("Pasta3.xlsx", sheet = "Liberação de empréstimo - MÊs")
+
+# Selecionar e renomear colunas
+dados <- dados %>%
+  select(`Data - Mês`, `DESC_TAXA`, `qtde total`, `Prazo médio`, `capital (j)`, `Saldo Empréstimo (k)`) %>%
+  rename(Data = `Data - Mês`,
+         Taxa_Juros = `DESC_TAXA`,
+         Quantidade_Total = `qtde total`,
+         Prazo_Medio = `Prazo médio`,
+         Capital_Cooperativa = `capital (j)`,
+         Saldo_Emprestimos = `Saldo Empréstimo (k)`)
+
+# Remover valores ausentes
+dados <- na.omit(dados)
+head(dados)
+# Ajustar o modelo de regressão múltipla
+modelo <- lm(Quantidade_Total ~ Taxa_Juros + Prazo_Medio + Capital_Cooperativa + Saldo_Emprestimos, data = dados)
+
+# Exibir resumo do modelo
+summary(modelo)
+
+# Criar gráfico da relação entre Taxa de Juros e Quantidade de Empréstimos
+ggplot(dados, aes(x = Taxa_Juros, y = Quantidade_Total)) +
+  geom_point(alpha = 0.7) +  
+  geom_smooth(method = "lm", col = "red") +  
+  labs(title = "Relação entre Taxa de Juros e Quantidade de Empréstimos",
+       x = "Taxa de Juros",
+       y = "Quantidade Total de Empréstimos") +
+  theme_minimal()
+
+# Analisar os resíduos do modelo
+residuos <- residuals(modelo)
+
+# Histograma dos resíduos
+hist(residuos, main = "Distribuição dos Resíduos", xlab = "Resíduos")
+
+# Gráfico de resíduos vs valores ajustados
+plot(fitted(modelo), residuos, main = "Resíduos vs Valores Ajustados",
+     xlab = "Valores Ajustados", ylab = "Resíduos", pch = 20)
+abline(h = 0, col = "red", lty = 2)
+
+# Teste de Shapiro-Wilk
+shapiro.test(residuos)
+
+
+# Calcular a elasticidade da demanda para cada ponto do conjunto de dados
+dados <- dados %>%
+  mutate(Elasticidade = (coef(modelo)["Taxa_Juros"] * Taxa_Juros) / Quantidade_Total)
+
+print(dados$Elasticidade)
+
+# Criar gráfico da elasticidade
+ggplot(dados, aes(x = Taxa_Juros, y = Elasticidade)) +
+  geom_line(color = "blue", size = 1) +  
+  geom_hline(yintercept = -1, linetype = "dashed", color = "red") +  # Linha de referência para E = -1
+  labs(title = "Curva de Elasticidade da Demanda por Empréstimos",
+       x = "Taxa de Juros",
+       y = "Elasticidade da Demanda") +
+  theme_minimal()
